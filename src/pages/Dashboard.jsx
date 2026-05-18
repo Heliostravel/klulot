@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { WeddingEvent, Guest } from "@/api/entities";
-import { Send, Download, Eye, Users, Check, X, Bell, Plus, Copy, Loader2, Upload, FileSpreadsheet, FileText, Link2, AlertCircle, Trash2 } from "lucide-react";
+import { Send, Download, Eye, Users, Check, X, Bell, Plus, Copy, Loader2, Upload, FileSpreadsheet, FileText, Link2, AlertCircle, Trash2, MessageCircle, ExternalLink } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 
 const statusLabels = { attending: "מגיעים", declined: "לא מגיעים", maybe: "מתלבטים", pending: "ממתינים" };
@@ -234,6 +234,8 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [waFilter, setWaFilter] = useState("all"); // all | pending | attending | declined
   const [newGuest, setNewGuest] = useState({ name: "", phone: "", invited_count: 2 });
   const [toast, setToast] = useState(null);
 
@@ -289,6 +291,20 @@ export default function Dashboard() {
     const a = document.createElement("a"); a.href = url; a.download = "guests.csv"; a.click();
     URL.revokeObjectURL(url);
     showToast("הקובץ ירד למחשב 💛");
+  };
+
+  const sendWhatsAppToGuest = (g, eventData) => {
+    if (!g.phone) return;
+    const baseUrl = window.location.origin;
+    const link = `${baseUrl}/invite/${g.invitation_link_token || g.id}`;
+    const msg = encodeURIComponent(
+      `שלום ${g.name} 💛\n` +
+      `${eventData.bride_name} ו-${eventData.groom_name} שמחים להזמין אתכם לחתונתם!\n` +
+      `${eventData.event_date ? new Date(eventData.event_date).toLocaleDateString("he-IL") : ""}${eventData.venue_name ? " · " + eventData.venue_name : ""}\n\n` +
+      `לפרטים ואישור הגעה: ${link}`
+    );
+    const phone = g.phone.replace(/\D/g, "").replace(/^0/, "972");
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
   };
 
   const sendReminder = () => {
@@ -376,7 +392,7 @@ export default function Dashboard() {
             <button onClick={() => setShowImport(true)} style={{ ...btnGold, background: "linear-gradient(135deg, #2d6e9e, #4fa8d4)" }}>
               <Upload style={{ width: "0.9rem", height: "0.9rem" }} />יבוא
             </button>
-            <button onClick={sendReminder} style={btnOutline}><Bell style={{ width: "0.9rem", height: "0.9rem" }} />תזכורת</button>
+            <button onClick={() => setShowWhatsApp(true)} style={{ ...btnGold, background: "linear-gradient(135deg, #25d366, #128c7e)" }}><MessageCircle style={{ width: "0.9rem", height: "0.9rem" }} />WhatsApp</button>
             <button onClick={exportCSV} style={btnOutline}><Download style={{ width: "0.9rem", height: "0.9rem" }} />ייצוא</button>
             <Link to="/" style={{ ...btnOutline, textDecoration: "none" }}>🏠 ראשי</Link>
           </div>
@@ -483,15 +499,21 @@ export default function Dashboard() {
                           {g.updated_date ? new Date(g.updated_date).toLocaleDateString("he-IL") : "—"}
                         </td>
                         <td style={{ padding: "0.6rem 0.5rem" }}>
-                          <button onClick={() => copyLink(g)} style={{ border: "none", background: "none", cursor: "pointer", color: "#b8842a", padding: "0.25rem" }}>
-                            <Copy style={{ width: "0.9rem", height: "0.9rem" }} />
-                          </button>
+                          <div style={{ display: "flex", gap: "0.2rem" }}>
+                            <button onClick={() => copyLink(g)} title="העתק לינק" style={{ border: "none", background: "none", cursor: "pointer", color: "#b8842a", padding: "0.25rem" }}>
+                              <Copy style={{ width: "0.9rem", height: "0.9rem" }} />
+                            </button>
+                            {g.phone && (
+                              <button onClick={() => sendWhatsAppToGuest(g, event)} title="שלח WhatsApp" style={{ border: "none", background: "none", cursor: "pointer", color: "#25d366", padding: "0.25rem" }}>
+                                <MessageCircle style={{ width: "0.9rem", height: "0.9rem" }} />
+                              </button>
+                            )}
+                            <button onClick={() => deleteGuest(g.id)} title="מחק" style={{ border: "none", background: "none", cursor: "pointer", color: "#c0392b", padding: "0.25rem" }}>
+                              <Trash2 style={{ width: "0.9rem", height: "0.9rem" }} />
+                            </button>
+                          </div>
                         </td>
-                        <td style={{ padding: "0.6rem 0.5rem" }}>
-                          <button onClick={() => deleteGuest(g.id)} style={{ border: "none", background: "none", cursor: "pointer", color: "#c0392b", padding: "0.25rem" }}>
-                            <Trash2 style={{ width: "0.9rem", height: "0.9rem" }} />
-                          </button>
-                        </td>
+                        <td style={{ display: "none" }} />
                       </tr>
                     );
                   })}
@@ -501,6 +523,94 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+
+      {/* WhatsApp Send Dialog */}
+      {showWhatsApp && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }} onClick={e => e.target === e.currentTarget && setShowWhatsApp(false)}>
+          <div style={{ background: "#fff", borderRadius: "1.25rem", padding: "2rem", maxWidth: "560px", width: "100%", maxHeight: "85vh", overflowY: "auto", direction: "rtl", fontFamily: "'Heebo', sans-serif" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <h2 style={{ fontFamily: "'Frank Ruhl Libre', serif", fontSize: "1.5rem", color: "#3a1f05", margin: 0 }}>
+                <span style={{ color: "#25d366", marginLeft: "0.4rem" }}>📱</span>שליחת הזמנות WhatsApp
+              </h2>
+              <button onClick={() => setShowWhatsApp(false)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "1.25rem", color: "#888" }}>✕</button>
+            </div>
+
+            {/* Filter */}
+            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+              {[
+                { val: "all", label: "כולם" },
+                { val: "pending", label: "ממתינים בלבד" },
+                { val: "attending", label: "אישרו בלבד" },
+              ].map(f => (
+                <button key={f.val} onClick={() => setWaFilter(f.val)} style={{
+                  padding: "0.4rem 0.9rem", borderRadius: "999px", border: "1px solid",
+                  borderColor: waFilter === f.val ? "#25d366" : "#ddd",
+                  background: waFilter === f.val ? "#e8faf0" : "transparent",
+                  color: waFilter === f.val ? "#1a7a40" : "#666",
+                  cursor: "pointer", fontSize: "0.85rem"
+                }}>{f.label}</button>
+              ))}
+            </div>
+
+            {/* Guest list */}
+            {(() => {
+              const filtered = guests.filter(g => {
+                if (waFilter === "pending") return g.status === "pending";
+                if (waFilter === "attending") return g.status === "attending";
+                return true;
+              });
+              const withPhone = filtered.filter(g => g.phone);
+              const noPhone = filtered.filter(g => !g.phone);
+              const baseUrl = window.location.origin;
+              return (
+                <>
+                  <p style={{ fontSize: "0.85rem", color: "#666", marginBottom: "0.75rem" }}>
+                    {withPhone.length} אורחים עם טלפון · {noPhone.length} ללא טלפון
+                  </p>
+                  <div style={{ maxHeight: "300px", overflowY: "auto", border: "1px solid #e8e8e8", borderRadius: "0.75rem", marginBottom: "1.25rem" }}>
+                    {withPhone.map(g => {
+                      const link = `${baseUrl}/invite/${g.invitation_link_token || g.id}`;
+                      const msg = encodeURIComponent(
+                        `שלום ${g.name} 💛\n` +
+                        `${event.bride_name} ו-${event.groom_name} שמחים להזמין אתכם לחתונתם!\n` +
+                        `${event.event_date ? new Date(event.event_date).toLocaleDateString("he-IL") : ""}${event.venue_name ? " · " + event.venue_name : ""}\n\n` +
+                        `לפרטים ואישור הגעה: ${link}`
+                      );
+                      const phone = g.phone.replace(/\D/g, "").replace(/^0/, "972");
+                      const sc = statusColors[g.status] || statusColors.pending;
+                      return (
+                        <div key={g.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.65rem 1rem", borderBottom: "1px solid #f5f5f5" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <span style={{ fontWeight: 500 }}>{g.name}</span>
+                            <span style={{ padding: "0.15rem 0.5rem", borderRadius: "999px", fontSize: "0.7rem", background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
+                              {statusLabels[g.status]}
+                            </span>
+                          </div>
+                          <a href={`https://wa.me/${phone}?text=${msg}`} target="_blank" rel="noopener noreferrer"
+                            style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.35rem 0.85rem", background: "#25d366", color: "#fff", borderRadius: "0.5rem", textDecoration: "none", fontSize: "0.82rem", fontWeight: 500 }}>
+                            <MessageCircle style={{ width: "0.85rem", height: "0.85rem" }} /> שלח
+                          </a>
+                        </div>
+                      );
+                    })}
+                    {withPhone.length === 0 && (
+                      <div style={{ padding: "2rem", textAlign: "center", color: "#aaa" }}>אין אורחים עם מספר טלפון בסינון זה</div>
+                    )}
+                  </div>
+                  {noPhone.length > 0 && (
+                    <p style={{ fontSize: "0.8rem", color: "#aaa" }}>⚠️ {noPhone.length} אורחים ללא מספר טלפון: {noPhone.map(g => g.name).join(", ")}</p>
+                  )}
+                </>
+              );
+            })()}
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={() => setShowWhatsApp(false)} style={{ padding: "0.65rem 1.5rem", border: "1px solid #ddd", borderRadius: "0.6rem", background: "transparent", color: "#666", cursor: "pointer" }}>סגור</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Guest Dialog */}
       {showAdd && (

@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "guest_id": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "opened_at": {
+      "type": "string"
+    },
+    "user_agent": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "guest_id",
+    "event_id"
+  ],
+  "name": "InvitationOpen"
+}

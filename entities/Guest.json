@@ -1,0 +1,52 @@
+{
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "invited_count": {
+      "type": "number",
+      "default": 2
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "attending",
+        "declined",
+        "maybe"
+      ],
+      "default": "pending"
+    },
+    "attending_count": {
+      "type": "number"
+    },
+    "dietary": {
+      "type": "string"
+    },
+    "blessing": {
+      "type": "string"
+    },
+    "opened": {
+      "type": "boolean",
+      "default": false
+    },
+    "opened_at": {
+      "type": "string"
+    },
+    "invitation_link_token": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "name"
+  ],
+  "name": "Guest"
+}

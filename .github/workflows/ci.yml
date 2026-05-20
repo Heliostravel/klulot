@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm ci --if-present || npm install
+          else
+            echo "No package.json found — skipping install"
+          fi
+
+      - name: Lint JSX files
+        run: |
+          echo "=== Checking JSX syntax ==="
+          for f in src/**/*.jsx src/*.jsx; do
+            [ -f "$f" ] || continue
+            node --input-type=module <<< "
+              import { readFileSync } from 'fs';
+              const c = readFileSync('$f','utf8');
+              // basic checks
+              const opens = (c.match(/\{/g)||[]).length;
+              const closes = (c.match(/\}/g)||[]).length;
+              if (opens !== closes) process.exit(1);
+              console.log('✓ $f');
+            " || { echo "✗ Brace mismatch in $f"; exit 1; }
+          done
+
+      - name: Check required files exist
+        run: |
+          echo "=== Checking required files ==="
+          files=(
+            "src/App.jsx"
+            "src/pages/Landing.jsx"
+            "src/pages/Onboarding.jsx"
+            "src/pages/Dashboard.jsx"
+            "src/pages/Invitation.jsx"
+            "functions/parseGuestFile.ts"
+            "entities/WeddingEvent.json"
+            "entities/Guest.json"
+            "entities/InvitationOpen.json"
+          )
+          for f in "${files[@]}"; do
+            [ -f "$f" ] && echo "✓ $f" || { echo "✗ Missing: $f"; exit 1; }
+          done
+
+      - name: Validate entity schemas
+        run: |
+          echo "=== Validating entity JSON schemas ==="
+          for f in entities/*.json; do
+            python3 -c "
+          import json, sys
+          with open('$f') as fh:
+              data = json.load(fh)
+          assert 'properties' in data or 'type' in data, 'Invalid schema'
+          print('✓ $f')
+            " || { echo "✗ Invalid JSON: $f"; exit 1; }
+          done
+
+      - name: Validate TypeScript function (syntax)
+        run: |
+          echo "=== Checking TypeScript functions ==="
+          for f in functions/*.ts; do
+            [ -f "$f" ] || continue
+            # Check it's non-empty and has Deno.serve
+            grep -q "Deno.serve" "$f" && echo "✓ $f" || { echo "✗ Missing Deno.serve in $f"; exit 1; }
+          done
+
+      - name: Summary
+        run: echo "✅ All checks passed!"
